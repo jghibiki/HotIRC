@@ -1,0 +1,49 @@
+
+<div ng-show="!initialized">
+    <div>
+        <span>
+            <input type="radio" name="newSession" ng-model="newSession" ng-value="true"/>
+            New Session
+        </span>
+        <span>
+            <input type="radio" name="newSession" ng-model="newSession" ng-value="false"/>
+            Resume Session
+        </span>
+    </div>
+    <div ng-show="newSession">
+        <form class="css-form">
+            Server <input type="text" ng-model="server" required><br>
+            Channel <input type="text" ng-model="channel" required><br>
+            Nick: <input type="text" ng-model="nick" required><br>
+            Nick Password: <input type="password" ng-model="nickPassword">(Optional)<br>
+            Session Password: <input type="password" ng-model="sessionPassword" minlength="6">(Optional, at least 6 characters)<br>
+            <input type="submit" ng-click="initialize()"/>
+        </form>
+    </div>
+    <div ng-show="!newSession">
+        <form class="css-form">
+            Nick: <input type="text" ng-model="nick" required><br>
+            Session Password: <input type="password" ng-model="sessionPassword" required><br>
+            <input type="submit" ng-click="initialize()"/>
+        </form>
+    </div>
+    <style type="text/css">
+        .css-form input.ng-invalid.ng-touched {
+            background-color: #FA787E;
+        }
+        .css-form input.ng-valid.ng-touched {
+            background-color: #fff;
+        }
+    </style>
+</div>
+<div ng-show="initialized && server !=='' && channel !=='' ">
+    <div>{{server}}:{{channel}}</div>
+    <div ng-repeat="message in servers[server][channel].messages">
+        {{message.from}}: {{message.content}}
+        <br>
+    </div>
+    <p>
+        <input type="text" ng-model="userMessage"><button ng-click="sendUserMessage()">Send</button>
+    </p>
+</div>
+
