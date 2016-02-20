@@ -24,19 +24,66 @@ app.use("/api", router)
 sessions = []
 
 io.on('connection', function(socket){ 
+    console.log("New Connection");
+
     socket.on("newSession", function(sessionInfo){
+        console.log("Attempting to initiate new session");
+
         ircSession = new irc.Client(sessionInfo.server, sessionInfo.nick, {
-            channels: [sessionInfo.channel]
         });
 
-        ircSession.addListener('message'+sessionInfo.channel, function(from, message){
-            sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].push({
-                from: from,
-                message: message
+        ircSession.addListener("error", function(error){
+            console.log("IRC Error: " + error);
+        });
+
+        ircSession.join(sessionInfo.channel, function(){
+
+            ircSession.addListener('message'+sessionInfo.channel, function(from, message){
+                console.log("11");
+                sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].push({
+                    from: from,
+                    message: message
+                });
+
+                console.log("12");
+                socket.emit("newState",{
+                    servers: sessions[socket.ircSessionId].servers
+                });
+                console.log("13");
+            });
+
+
+            socket.ircSessionId = sessions.length;
+
+            var servers = {};
+            servers[sessionInfo.server] = {}
+            servers[sessionInfo.server][sessionInfo.channel] = []
+            console.log("3");
+
+            sessions.push({
+                servers: servers,
+                client: ircSession
+            });
+
+            socket.emit("initialized");
+
+            socket.emit("newState",{
+                servers: sessions[socket.ircSessionId].servers
             });
         });
     });
 
+    socket.on("newMessage", function(message){
+        console.log("9");
+        console.log(socket.ircSessionId);
+        sessions[socket.ircSessionId][message.server][message.channel].push(message);
+        sessions[socket.ircSessionId].client.say(message.channel, message.content);
+        console.log("10");
+    });
+
+    socket.on("error", function(error){
+        console.log("Error: " + error);
+    });
 });
 
 

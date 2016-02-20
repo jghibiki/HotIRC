@@ -15,15 +15,20 @@ angular.module('myApp.view1', ['ngRoute'])
     $scope.channel = "";
     $scope.nickPassword = "";
     $scope.sessionPassword = "";
-    $scope.server = "";
+    $scope.server = "irc.freenode.net";
     $scope.initialized = false;
     $scope.newSession = true;
     $scope.servers = [];
 
 
     $scope.sendUserMessage = function(){
-        if($scope.nick !== "" && $scope.initialized){
-            socket.emit("newMessage", {from: $scope.nick, content:$scope.userMessage});
+        if($scope.initialized){
+            socket.emit("newMessage", {
+                from: $scope.nick, 
+                content: $scope.userMessage,
+                server: $scope.server,
+                channel: $scope.channel
+            });
         }
         else{
             alert("You must set a nick before you can send a message!");
@@ -32,8 +37,7 @@ angular.module('myApp.view1', ['ngRoute'])
 
     $scope.initialize = function(){
         if($scope.newSession){
-            $scope.initialized = true;
-            socket.emit("startSession", {
+            socket.emit("newSession", {
                 server: $scope.server,
                 channel: $scope.channel,
                 nick: $scope.nick,
@@ -44,7 +48,6 @@ angular.module('myApp.view1', ['ngRoute'])
             $scope.sessionPassword = "";
         }
         else{
-            $scope.initialized = true;
             socket.emit("resumeSession", {
                 nick: $scope.nick,
                 nickPassword: $scope.nickPassword
@@ -53,10 +56,13 @@ angular.module('myApp.view1', ['ngRoute'])
         }
     }
 
+    socket.on("initialized", function(){
+        $scope.initialized = true;
+    });
+
     socket.on("newState", function(state){
         if($scope.initialized){
             $scope.servers = state.servers;
-            $scope.nick = state.server;
         }
         if($scope.server === ""){
             if(Object.keys($scope.servers).length > 0){
