@@ -30,45 +30,49 @@ io.on('connection', function(socket){
         console.log("Attempting to initiate new session");
 
         ircSession = new irc.Client(sessionInfo.server, sessionInfo.nick, {
+            debug: true
         });
 
-        ircSession.addListener("error", function(error){
-            console.log("IRC Error: " + error);
-        });
+        ircSession.addListener("registered", function(){
 
-        ircSession.join(sessionInfo.channel, function(){
+            ircSession.addListener("error", function(error){
+                console.log("IRC Error: " + error.args[0] + ":" + error.args[1]);
+            });
 
-            ircSession.addListener('message'+sessionInfo.channel, function(from, message){
-                console.log("11");
-                sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].push({
-                    from: from,
-                    message: message
+            ircSession.join(sessionInfo.channel, function(){
+
+                ircSession.addListener('message'+sessionInfo.channel, function(from, message){
+                    console.log("11");
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].push({
+                        from: from,
+                        message: message
+                    });
+
+                    console.log("12");
+                    socket.emit("newState",{
+                        servers: sessions[socket.ircSessionId].servers
+                    });
+                    console.log("13");
                 });
 
-                console.log("12");
+
+                socket.ircSessionId = sessions.length;
+
+                var servers = {};
+                servers[sessionInfo.server] = {}
+                servers[sessionInfo.server][sessionInfo.channel] = []
+                console.log("3");
+
+                sessions.push({
+                    servers: servers,
+                    client: ircSession
+                });
+
+                socket.emit("initialized");
+
                 socket.emit("newState",{
                     servers: sessions[socket.ircSessionId].servers
                 });
-                console.log("13");
-            });
-
-
-            socket.ircSessionId = sessions.length;
-
-            var servers = {};
-            servers[sessionInfo.server] = {}
-            servers[sessionInfo.server][sessionInfo.channel] = []
-            console.log("3");
-
-            sessions.push({
-                servers: servers,
-                client: ircSession
-            });
-
-            socket.emit("initialized");
-
-            socket.emit("newState",{
-                servers: sessions[socket.ircSessionId].servers
             });
         });
     });
