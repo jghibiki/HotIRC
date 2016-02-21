@@ -8,12 +8,16 @@ var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
+var debug = true;
+
 server.listen(8000, "0.0.0.0");
 console.log('\n=========================================\n  _    _       _   _____ _____   _____ \n | |  | |     | | |_   _|  __ \\ / ____|\n | |__| | ___ | |_  | | | |__) | |     \n |  __  |/ _ \\| __| | | |  _  /| |     \n | |  | | (_) | |_ _| |_| | \\ \\| |____ \n |_|  |_|\\___/ \\__|_____|_|  \\_\\\\_____|\n=========================================');
+if(debug) console.log("Running in debug mode.");
 console.log("Listening on port 8000.")
 app.use(express.static("./app"))
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
 
 var router = express.Router();
 
@@ -30,7 +34,7 @@ io.on('connection', function(socket){
         console.log("Attempting to initiate new session");
 
         ircSession = new irc.Client(sessionInfo.server, sessionInfo.nick, {
-            debug: true
+            debug: debug
         });
 
         ircSession.addListener("registered", function(){
@@ -59,9 +63,11 @@ io.on('connection', function(socket){
                     client: ircSession
                 });
 
-                sessions[socket.ircSessionId].client.addListener("raw", function(message){
-                    console.log(JSON.stringify(message));
-                });
+                if(debug){
+                    ircSession.addListener("raw", function(message){
+                        console.log(JSON.stringify(message));
+                    });
+                }
 
                 var listener = 'message'+sessionInfo.channel
                 console.log("Adding channel listener " + listener)
@@ -146,12 +152,57 @@ io.on('connection', function(socket){
         newState(message.server, message.channel);
     });
 
-    socket.on("send", function(message){
+    socket.on("/reload", function(args){
+        console.log("Reload remote state");
+        newState(args.state.server, args.state.channel);
+    });
 
-        console.log("Sending command" + message.command);
-        //sessions[socket.ircSessionId].client.send(message.command[0]);
+    socket.on("send", function(message){
+        console.log("Sending command " + message.command);
         sessions[socket.ircSessionId].client.send.apply(sessions[socket.ircSessionId].client, message.command);
     });
+
+    socket.on("/whois", function(args){
+        console.log("Running whois query for " + args.who);
+        sessions[socket.ircSessionId].client.whois(args.who, function(response){
+            console.log(response);
+
+            sessions[socket.ircSessionId].servers[args.state.server][args.state.channel].messages.push({
+                time: new Date(),
+                from: "WHOIS [" + response.nick + "]",
+                content: "Nick: " + response.nick,
+                server: args.state.server,
+                channel: args.state.channel
+            })
+
+            sessions[socket.ircSessionId].servers[args.state.server][args.state.channel].messages.push({
+                time: new Date(),
+                from: "WHOIS [" + response.nick + "]",
+                content: "Host: " + response.host,
+                server: args.state.server,
+                channel: args.state.channel
+            })
+
+            sessions[socket.ircSessionId].servers[args.state.server][args.state.channel].messages.push({
+                time: new Date(),
+                from: "WHOIS [" + response.nick + "]",
+                content: "Real Name: " + response.realname,
+                channel: args.state.channel
+            })
+
+            sessions[socket.ircSessionId].servers[args.state.server][args.state.channel].messages.push({
+                time: new Date(),
+                from: "WHOIS [" + response.nick + "]",
+                content: "Server: " + response.server, 
+                channel: args.state.channel
+            })
+            
+            
+            newState(args.state.server, args.state.channel);
+        });
+
+    });
+
 
     socket.on("error", function(error){
         console.log("Error: " + error);

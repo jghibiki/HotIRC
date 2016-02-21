@@ -25,7 +25,33 @@ angular.module('myApp.view1', ['ngRoute'])
 
     $scope.sendUserMessage = function(){
         if($scope.initialized){
-            if($scope.userMessage.match(/^\/(\w)(\w| )*/g)){
+            if($scope.userMessage.match(/^\/whois \w+/i)){
+                var command = $scope.userMessage.replace("/","").split(" ");
+                console.log(command);
+
+                socket.emit("/whois", {
+                    state: {
+                        server: $scope.server,
+                        channel: $scope.channel,
+                        servers: $scope.servers,
+                        nick: $scope.nick
+                    },
+                    who: command[1]
+                });
+
+            }
+            else if($scope.userMessage.match(/^\/reload/i)){
+                socket.emit("/reload", {
+                    state: {
+                        server: $scope.server,
+                        channel: $scope.channel,
+                        servers: $scope.servers,
+                        nick: $scope.nick
+                    },
+                });
+
+            }
+            else if($scope.userMessage.match(/^\/(\w)(\w| )*/i)){
 
                 var command = $scope.userMessage.replace("/","").split(" ");
                 command[0] = command[0].toUpperCase();
