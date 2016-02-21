@@ -39,55 +39,139 @@ io.on('connection', function(socket){
                 console.log("IRC Error: " + error.args[0] + ":" + error.args[1]);
             });
 
+            if(sessionInfo.nickPassword !== ""){
+                ircSession.say("NickServ", "identify " + sessionInfo.nickPassword);
+            }
+
             ircSession.join(sessionInfo.channel, function(){
-
-                ircSession.addListener('message'+sessionInfo.channel, function(from, message){
-                    console.log("11");
-                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].push({
-                        from: from,
-                        message: message
-                    });
-
-                    console.log("12");
-                    socket.emit("newState",{
-                        servers: sessions[socket.ircSessionId].servers
-                    });
-                    console.log("13");
-                });
-
 
                 socket.ircSessionId = sessions.length;
 
                 var servers = {};
                 servers[sessionInfo.server] = {}
-                servers[sessionInfo.server][sessionInfo.channel] = []
-                console.log("3");
+                servers[sessionInfo.server][sessionInfo.channel] = {}
+                servers[sessionInfo.server][sessionInfo.channel].messages = []
+                servers[sessionInfo.server][sessionInfo.channel].nicks = []
 
                 sessions.push({
                     servers: servers,
+                    info: sessionInfo,
                     client: ircSession
+                });
+
+                sessions[socket.ircSessionId].client.addListener("raw", function(message){
+                    console.log(JSON.stringify(message));
+                });
+
+                var listener = 'message'+sessionInfo.channel
+                console.log("Adding channel listener " + listener)
+                ircSession.addListener(listener, function(from, message, extra){
+                    console.log(sessionInfo.channel + ":" + from + ": " + message);
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].messages.push({
+                        time: new Date(),
+                        from: from,
+                        content: message,
+                        server: sessionInfo.server,
+                        channel: sessionInfo.channel
+                    });
+
+                    newState(sessionInfo.server, sessionInfo.channel);
+                });
+
+                ircSession.addListener('names'+sessionInfo.channel, function(nicks) {
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].names = nicks;    
+                });
+                ircSession.addListener('join'+sessionInfo.channel, function(who, reason, message) {
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].messages.push({
+                        time: new Date(),
+                        from: "NOTICE",
+                        content: who + " has joined " + sessionInfo.channel + ".",
+                        server: sessionInfo.server,
+                        channel: sessionInfo.channel
+                    })
+                    newState(sessionInfo.server, sessionInfo.channel);
+                });
+                ircSession.addListener('part'+sessionInfo.channel, function(who, reason, message) {
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].messages.push({
+                        time: new Date(),
+                        from: "NOTICE",
+                        content: who + " has parted " + sessionInfo.channel + ".",
+                        server: sessionInfo.server,
+                        channel: sessionInfo.channel
+                    })
+                    newState(sessionInfo.server, sessionInfo.channel);
+                });
+                ircSession.addListener('kick'+sessionInfo.channel, function(who, by, reason, message) {
+                    sessions[socket.ircSessionId].servers[sessionInfo.server][sessionInfo.channel].messages.push({
+                        time: new Date(),
+                        from: "NOTICE",
+                        content: by + " has kicked " + woh+ " from " + sessionInfo.channel + ". Reason: " + reason,
+                        server: sessionInfo.server,
+                        channel: sessionInfo.channel
+                    })
+                    newState(sessionInfo.server, sessionInfo.channel);
                 });
 
                 socket.emit("initialized");
 
-                socket.emit("newState",{
-                    servers: sessions[socket.ircSessionId].servers
-                });
+                newState(sessionInfo.server, sessionInfo.channel);
             });
         });
     });
 
+    socket.on("resumeSession", function(credentials){
+        console.log("Attempting to resume session.");
+
+        sessions.forEach(function(session){
+            if(session.info.nick === credentials.nick 
+                    && session.info.sessionPassword === credentials.sessionPassword){
+
+                socket.ircSessionId = sessions.indexOf(session);
+
+                socket.emit("initialized");
+
+                var server = Object.keys(session.servers)[0];
+                var channel = Object.keys(session.servers[server])[0];
+                newState(server, channel);
+            }
+        });
+    });
+
     socket.on("newMessage", function(message){
-        console.log("9");
-        console.log(socket.ircSessionId);
-        sessions[socket.ircSessionId][message.server][message.channel].push(message);
+        console.log("New Message in Session: " + socket.ircSessionId + "\"" + message.content + "\"");
+        message.date = new Date();
+        sessions[socket.ircSessionId].servers[message.server][message.channel].messages.push(message);
         sessions[socket.ircSessionId].client.say(message.channel, message.content);
-        console.log("10");
+
+        newState(message.server, message.channel);
+    });
+
+    socket.on("send", function(message){
+
+        console.log("Sending command" + message.command);
+        //sessions[socket.ircSessionId].client.send(message.command[0]);
+        sessions[socket.ircSessionId].client.send.apply(sessions[socket.ircSessionId].client, message.command);
     });
 
     socket.on("error", function(error){
         console.log("Error: " + error);
     });
+
+    socket.on("endSession", function(){
+        sessions[socket.ircSessionId].client.disconnect(function(){
+            sessions[socket.ircSessionId].client = null;
+            sessions[socket.ircSessionId].servers = null;
+            sessions[socket.ircSessionId].info = null;
+        });
+    });
+
+    var newState = function(server, channel){
+        sessions[socket.ircSessionId].servers[server][channel].names = Object.keys(sessions[socket.ircSessionId].client.chans[channel].users)
+        socket.emit("newState",{
+            servers: sessions[socket.ircSessionId].servers
+        });
+        
+    }
 });
 
 
