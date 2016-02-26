@@ -34,6 +34,7 @@
     "body-parser": "~1.15.0",
     "express": "~4.13.4",
     "irc": "git+https://github.com/jghibiki/node-irc.git",
-    "socket.io": "~1.4.5"
+    "socket.io": "~1.4.5",
+    "yargs": "~4.2.0"
   }
 }

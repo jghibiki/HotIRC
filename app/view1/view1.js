@@ -51,6 +51,22 @@ angular.module('myApp.view1', ['ngRoute'])
                 });
 
             }
+            else if($scope.userMessage.match(/^\/msg \w+/i)){
+                var command = $scope.userMessage.replace("/","").split(" ");
+                console.log(command);
+
+                socket.emit("/msg", {
+                    state: {
+                        server: $scope.server,
+                        channel: $scope.channel,
+                        servers: $scope.servers,
+                        nick: $scope.nick
+                    },
+                    to: command[1],
+                    content: command.slice(2).join(" ")
+                });
+
+            }
             else if($scope.userMessage.match(/^\/(\w)(\w| )*/i)){
 
                 var command = $scope.userMessage.replace("/","").split(" ");

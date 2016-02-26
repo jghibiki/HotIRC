@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+var argv = require('yargs').argv;
+var server = require('./lib/server.js');
+
+
+console.log('\n=========================================\n  _    _       _   _____ _____   _____ \n | |  | |     | | |_   _|  __ \\ / ____|\n | |__| | ___ | |_  | | | |__) | |     \n |  __  |/ _ \\| __| | | |  _  /| |     \n | |  | | (_) | |_ _| |_| | \\ \\| |____ \n |_|  |_|\\___/ \\__|_____|_|  \\_\\\\_____|\n=========================================');
+
+opts = loadOptions();
+if(opts.debug) console.log("Running in debug mode.");
+server(opts);
+
+
+
+function loadOptions(){
+    var opts = {
+        version: "0.1",
+        debug: argv.debug || true,
+
+        host: argv.host || "localhost",
+        port: argv.port || 8000,
+
+        server: argv.server || "irc.freenode.net",
+        channel: argv.server || ""
+
+    }
+
+    return opts;
+}
